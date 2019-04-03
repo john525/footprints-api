@@ -8,6 +8,8 @@ import (
 
     "io/ioutil"
     "encoding/json"
+    "time"
+    "strconv"
 
     "database/sql"
 )
@@ -28,7 +30,7 @@ func (etl * ETL) Close() {
     log.Println("Database connection closed.")
 }
 
-func LoadFeature(data interface{}) (added bool, err error) {
+func (etl *ETL) LoadFeature(data interface{}) (added bool, err error) {
     added = false
 
     feature, ok := data.(Feature)
@@ -38,14 +40,70 @@ func LoadFeature(data interface{}) (added bool, err error) {
     }
 
     if feature.Type != "Feature" {
-        msg := fmt.Sprintf("Invalid type attribute: %v.", feature.Type)
-        err = errors.New(msg)
+        err = fmt.Errorf("Invalid type attribute: %v.", feature.Type)
         return
     }
 
-    fmt.Printf("geotype %v last: %v\n", feature.Geometry.Type, feature.Properties.LastMod)
+    // Validate feature timestamp
+    layout := "2006-01-02T15:04:05.000Z"
+    str := feature.Properties.Lstmoddate
+    t, err := time.Parse(layout, str)
+    if err != nil {
+        err = fmt.Errorf("Could not parse last mod date (%v)", str)
+        return
+    }
+
+    //Validate other props
+    doitt_id, err := strconv.Atoi(feature.Properties.Doitt_id)
+    if err != nil {
+        err = fmt.Errorf("Could not parse doitt_id (%v)", err)
+        return
+    }
+    year, err := strconv.Atoi(feature.Properties.Cnstrct_yr)
+    if err != nil {
+        err = fmt.Errorf("Could not parse constructed year (%v)", err)
+        return
+    }
+    height, err := strconv.ParseFloat(feature.Properties.Heightroof, 32)
+    if err != nil {
+        err = fmt.Errorf("Could not parse height of roof (%v)", err)
+        return
+    }
+
+    newRow := &DBFeature{}
+    newRow.DoittID = doitt_id
+    newRow.Year = year
+    newRow.LastMod = t
+    newRow.RoofHeight = float32(height)
+    newRow.X = feature.Geometry.Coordinates.X
+    newRow.Y = feature.Geometry.Coordinates.Y
+
+    
+    oldFeature, err := QueryByDoittID(etl.db, doitt_id)
+    if err != nil {
+        log.Printf("Error from SELECT query: %v\n", err)
+    }
+    if oldFeature != nil {
+        u := oldFeature.LastMod
+        if u.Before(t) {
+            err = UpdateDBEntry(etl.db, oldFeature.ID, newRow)
+            if err != nil {
+                return
+            }
+        } else {
+            err = errors.New("Cannot overwrite database with older data.")
+            return
+        }
+
+    } else {
+        err = InsertIntoDB(etl.db, newRow)
+        if err != nil {
+            return
+        }
+    }
 
     added = true
+    err = nil
     return
 }
 
@@ -55,25 +113,24 @@ func (etl * ETL) ExtractFeatures() (err error) {
 
     data, err := ioutil.ReadFile("data.geojson")
     if err != nil {
-        return errors.New("Unable to read geojson file.")
+        return fmt.Errorf("Unable to read geojson file (%v).", err)
     }
 
     featureCollection := GeoJSON{}
     err = json.Unmarshal(data, &featureCollection)
     if err != nil {
-        return errors.New("Unable to read geojson file.")
+        return fmt.Errorf("Unable to unmarshal geojson (%v).", err)
     }
 
     objType := featureCollection.Type
     features := featureCollection.Features
 
     if objType != "FeatureCollection" {
-        msg := fmt.Sprintf("GeoJSON object has unexpected type %v.", objType)
-        return errors.New(msg)
+        return fmt.Errorf("GeoJSON object has unexpected type %v.", objType)
     }
 
     for i := 0; i < len(features); i++ {
-        _, err = LoadFeature(features[i])
+        _, err = etl.LoadFeature(features[i])
         if err != nil {
             log.Printf("LoadFeature err: %v\n", err)
         }
