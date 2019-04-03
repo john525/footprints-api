@@ -4,6 +4,8 @@ import (
   "fmt"
   "log"
   "time"
+  _ "strings"
+  _ "strconv"
 
   "database/sql"
   _ "github.com/lib/pq"
@@ -70,17 +72,38 @@ func InsertIntoDB(db *sql.DB, feature * DBFeature) error {
 }
 
 func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
-  // TODO: implement
+  // 4269 represents NAD83 spatial reference system
+  point := fmt.Sprintf("ST_GeometryFromText('POINT (%f %f)', 4269)", feature.X, feature.Y)
+
+  //layout := "2006-01-02T15:04:05.000Z"
+  format := "2006-01-02:04:05-0700"
+  lastmod := fmt.Sprintf("TIMESTAMP WITH TIME ZONE '%s'", feature.LastMod.Format(format))
+
+  query := fmt.Sprintf(`UPDATE BUILDINGS SET DOITT_ID=%d YEAR=%d ROOF_HEIGHT=%f LASTMOD=%s
+    COORDS=%s WHERE ID=%d`, feature.DoittID,feature.Year, feature.RoofHeight,
+    lastmod, point, db_id)
+  _, err := db.Exec(query)
+  if err != nil {
+    return fmt.Errorf("Error updating (%s) into db: %s", query, err)
+  }
+
   return nil
 }
 
 func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, err error) {
-  query := fmt.Sprintf("SELECT * FROM buildings WHERE DOITT_ID=%d", doitt_id)
-  var fields []string
-  err = db.QueryRow(query, 15).Scan(&fields)
+  query := fmt.Sprintf(`SELECT ID, DOITT_ID, YEAR, LASTMOD, ROOF_HEIGHT, ST_X(COORDS), ST_Y(COORDS)
+    FROM BUILDINGS WHERE DOITT_ID=%d`, doitt_id)
+  
+  feature = &DBFeature{}
+
+  err = db.QueryRow(query).Scan(
+    &feature.ID, &feature.DoittID, &feature.Year, &feature.LastMod,
+    &feature.RoofHeight, &feature.X, &feature.Y)
+
   if err != nil {
-    return nil, err
+    return nil, fmt.Errorf("SELECT QUERY error: %v", err)
   }
 
-  return nil, nil
+  err = nil
+  return
 }
