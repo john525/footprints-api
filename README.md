@@ -5,8 +5,17 @@ The ETL pipeline works by downloading a GeoJSON data file from NYC DOITT once ev
 
 I used the geometry data types supported in PostGIS as the documentation recommends using geometric rather than geographic data types for data spanning small regions, such as cities, due to performance costs.
 
+The postgres table stores the following data:
+<ul>
+<li>ID - the table's primary key</li>
+<li>DOITT ID - a unique identifier assigned to each building in by the DOITT</li>
+<li>Year - the year the building was constructed (or is scheduled to be constructed)</li>
+<li>Last Modified - a timestamp stating when the NYC DOITT last updated data on this feature</li>
+<li>Roof Height - the height that the roof extends above ground elevation.
+</ul>
+
 <h2>Instructions</h2>
-To set up the postgres server, install postgres and postgis:
+To set up the postgres server, install postgres and postgis. For OSX:
 <code>brew install postgres
 brew install postgis</code>
 
