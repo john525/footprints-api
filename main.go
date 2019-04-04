@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"fmt"
+	"flag"
 
     "github/john525/footprints-api/server"
 )
@@ -27,8 +28,14 @@ func main() {
 	updateFreq := 7 * 24 * time.Hour
 	retryFreq := 500 * time.Millisecond
 
+	// Load and update data once a day
 	etl := server.NewETL(url, fname, updateFreq, retryFreq);
 	go etl.DoETL()
+
+	// Serve API Requests
+	var port int
+	flag.IntVar(&port, "port", 15000, "port to listen for api requests on")
+	go server.ServeAPI(port)
 	
 	fmt.Println("Footprints Server. Type 'help' for CLI instructions.")
 	for true {

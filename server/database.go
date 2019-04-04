@@ -2,10 +2,12 @@ package server
 
 import (
   "fmt"
+  "errors"
   "log"
   "time"
   _ "strings"
   _ "strconv"
+  _ "encoding/json"
 
   "database/sql"
   _ "github.com/lib/pq"
@@ -15,18 +17,36 @@ const (
   host     = "localhost"
   port     = 5432
   user     = "postgres"
-  password = "092125" // TODO: Change postgres password before deployment.
+  password = "092125" // TODO: Strengthen postgres password before deployment.
   dbname   = "nyc_buildings"
 )
 
 type DBFeature struct {
-  ID int
-  DoittID int
-  Year int
-  LastMod time.Time
-  RoofHeight float32
-  X float64
-  Y float64
+  ID int `json:"id"`
+  DoittID int `json:"doitt_id"`
+  Year int `json:"year"`
+  LastMod time.Time `json:"last_mod"`
+  RoofHeight float32 `json:"roof_height"`
+  X float64 `json:"coord_x"`
+  Y float64 `json:"coord_y"`
+  Msg string `json:"msg"`
+}
+
+func (feature * DBFeature) MarshalJSON() ([]byte, error) {
+  if feature == nil {
+    err := errors.New("attempt to marshal nil db feature")
+    return nil, err
+  }
+
+  json := fmt.Sprintf(`{"id": %d, "doitt_id": %d,
+    "msg": "%s", "Year": %d, "LastMod":"%s", "RoofHeight":%f,
+    "coord_x":%f, "coord_y":%f}`,
+    feature.ID, feature.DoittID, feature.Msg, feature.Year,
+    feature.LastMod, feature.RoofHeight, feature.X, feature.Y)
+
+  fmt.Println(json)
+
+  return []byte(json), nil
 }
 
 // Connect to the postgres database.
@@ -39,7 +59,7 @@ func ConnectToDB() (db * sql.DB) {
 
   db, err := sql.Open("postgres", psqlInfo)
   if err != nil {
-    log.Fatal(err)
+    log.Fatalln(err) // TODO: add better error-handling
   }
 
   err = db.Ping()
@@ -47,7 +67,7 @@ func ConnectToDB() (db * sql.DB) {
     log.Panicln(err)
   }
 
-  log.Println("Successfully connected to database.")
+  log.Println("Connecting to database...")
 
   return db
 }

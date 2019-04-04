@@ -139,10 +139,6 @@ func (etl * ETL) DownloadSourceData() {
             etl.downloadDone <- false
             return
         }
-    } else if err != os.ErrNotExist {
-        log.Printf("Find file error %v\n", err)
-        etl.downloadDone <- false
-        return
     }
 
     err = etl.DownloadFile(etl.fname, etl.url)
@@ -227,7 +223,7 @@ func (etl *ETL) LoadFeature(data interface{}) (added bool, err error) {
                 return
             }
         } else {
-            log.Println("Ignoring out-of-date feature data.")
+            // log.Println("Ignoring out-of-date feature data.")
             return
         }
     }
