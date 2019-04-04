@@ -41,7 +41,7 @@ Once the server is running on your local machine, the full data on a building wh
 localhost:15000/building?doitt_id=1205352
 
 The average height of buildings constructed between two years can be found as follows:
-localhost:15000/avg_height_between_years?min=1981&max=2016
+localhost:15000/avg_height_between_years?min=0&max=2015
 
 The file with name "logfile" stores the server's history for debugging purposes.
 
