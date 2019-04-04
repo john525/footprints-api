@@ -79,7 +79,7 @@ func InsertIntoDB(db *sql.DB, feature * DBFeature) error {
   lastmod := fmt.Sprintf("TIMESTAMP WITH TIME ZONE '%s'", feature.LastMod.Format(format))
 
   query := fmt.Sprintf(`INSERT INTO BUILDINGS (DOITT_ID, YEAR, ROOF_HEIGHT, LASTMOD, COORDS)
-    VALUES (%d, %d, %f, %s, %s)`, feature.DoittID,feature.Year, feature.RoofHeight,
+    VALUES (%d, %d, %f, %s, %s)`, feature.DoittID, feature.Year, feature.RoofHeight,
     lastmod, point)
   _, err := db.Exec(query)
   if err != nil {
@@ -115,15 +115,14 @@ func QueryAvgHeightInBoundingBox(db *sql.DB, xmin float32, ymin float32, xmax fl
 }
 
 func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height float32, err error) {
-  query := fmt.Sprintf(`SELECT AVG(ROOF_HEIGHT) as avg_height FROM BUILDINGS WHERE
-    (ROOF_HEIGHT IS NOT NULL) AND (YEAR >= %d) AND (YEAR <= %d)`, yearMax, yearMin)
+  query := fmt.Sprintf(`SELECT AVG(ROOF_HEIGHT) FROM BUILDINGS WHERE
+    (ROOF_HEIGHT IS NOT NULL) AND (YEAR >= %d) AND (YEAR <= %d);`, yearMin, yearMax)
   
-  var avg_height *float32
-
-  err = db.QueryRow(query).Scan(avg_height)
-  if avg_height == nil {
-    return 0, errors.New("no data found in interval")
-  }
+  var avgHeight *float32
+  err = db.QueryRow(query).Scan(&avgHeight)
+  // if avgHeight == nil {
+  //   return 0, errors.New("no data found in interval")
+  // }
 
   if err == sql.ErrNoRows {
     return 0, fmt.Errorf("No data entries within selected interval.")
@@ -131,7 +130,7 @@ func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height fl
     return 0, fmt.Errorf("SELECT error: %v", err)
   }
 
-  return *avg_height, nil
+  return *avgHeight, nil
   }
 
 func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, noRows bool, err error) {

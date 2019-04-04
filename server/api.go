@@ -79,7 +79,6 @@ func GetAvgHeightYears(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         resp := &APIResponse{}
         resp.Msg = "Invalid value for min (should be an integer)"
-        resp.AvgHeight = 0
         json.NewEncoder(w).Encode(resp)
         return
     }
@@ -87,7 +86,6 @@ func GetAvgHeightYears(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         resp := &APIResponse{}
         resp.Msg = "Invalid value for max (should be an integer)"
-        resp.AvgHeight = 0
         json.NewEncoder(w).Encode(resp)
         return
     }
