@@ -44,8 +44,6 @@ func (feature * DBFeature) MarshalJSON() ([]byte, error) {
     feature.ID, feature.DoittID, feature.Msg, feature.Year,
     feature.LastMod, feature.RoofHeight, feature.X, feature.Y)
 
-  fmt.Println(json)
-
   return []byte(json), nil
 }
 
@@ -109,6 +107,32 @@ func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
 
   return nil
 }
+
+func QueryAvgHeightInBoundingBox(db *sql.DB, xmin float32, ymin float32, xmax float32, ymax float32) {
+  // TODO: implement
+  //region := fmt.Sprintf("POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
+  //    xmin, ymin, xmin, ymax, xmax, ymax, xmax, ymin, xmin, ymin)
+}
+
+func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height float32, err error) {
+  query := fmt.Sprintf(`SELECT AVG(ROOF_HEIGHT) as avg_height FROM BUILDINGS WHERE
+    (ROOF_HEIGHT IS NOT NULL) AND (YEAR >= %d) AND (YEAR <= %d)`, yearMax, yearMin)
+  
+  var avg_height *float32
+
+  err = db.QueryRow(query).Scan(avg_height)
+  if avg_height == nil {
+    return 0, errors.New("no data found in interval")
+  }
+
+  if err == sql.ErrNoRows {
+    return 0, fmt.Errorf("No data entries within selected interval.")
+  } else if err != nil {
+    return 0, fmt.Errorf("SELECT error: %v", err)
+  }
+
+  return *avg_height, nil
+  }
 
 func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, noRows bool, err error) {
   query := fmt.Sprintf(`SELECT ID, DOITT_ID, YEAR, LASTMOD, ROOF_HEIGHT, ST_X(COORDS), ST_Y(COORDS)
