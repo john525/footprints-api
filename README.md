@@ -5,7 +5,7 @@ The ETL pipeline works by downloading a GeoJSON data file from NYC DOITT once ev
 
 I used the geometry data types supported in PostGIS as the documentation recommends using geometric rather than geographic data types for data spanning small regions, such as cities, due to performance costs.
 
-The postgres table stores the following data:
+The application loads and provides access to the following data:
 <ul>
 <li>ID - the table's primary key</li>
 <li>DOITT ID - a unique identifier assigned to each building in by the DOITT</li>
@@ -34,9 +34,11 @@ Find the binary "footprints-api" and run it from terminal:
 <code>./footprints-api</code>
 You may use the flag "-port" to specify which port the API can be accessed from. The default port is set to 15000.
 
-When the executable is run, a thread begins which automatically downloads a new version of the Building Footprints GeoJSON file from NYC Open Data every 24 hours. 
+When the executable is run, a thread begins which automatically downloads a new version of the Building Footprints GeoJSON file from NYC Open Data every 24 hours.
+To see the server's current activity, type "status" into the CLI.
+For more options, "help" can be entered.
 
-Data on a building whose DOITT ID is known can be retrieved in the following fashion:
+Once the server is running on your local machine, the full data on a building whose DOITT ID is known can be retrieved from the postgres datastore in the following fashion:
 http://localhost:15000/building?doitt_id=1205352
 
 The average height of buildings constructed between two years can be found as follows:
