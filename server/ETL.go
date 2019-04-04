@@ -4,8 +4,10 @@ import (
     "fmt"
     "log"
     "errors"
-    "sync"
 
+    "net/http"
+    "io"
+    "os"
     "io/ioutil"
     "encoding/json"
     "time"
@@ -14,15 +16,144 @@ import (
     "database/sql"
 )
 
+type Status int
+const (
+    Download Status = 0
+    Extract Status = 1
+    TransformLoad Status = 2
+    Waiting Status = 3
+)
+
 type ETL struct {
     db *sql.DB
-    mutex sync.Mutex
+    fname string
+    url string
+    updateFreq time.Duration
+    retryFreq time.Duration
+    last *time.Time
+    stopETL chan bool
+    downloadDone chan bool
+    extractDone chan bool
+    status Status
 }
 
-func NewETL() (etl *ETL) {
+func NewETL(url string, fname string, updateFreq time.Duration, retryFreq time.Duration) (etl *ETL) {
     etl = &ETL{}
+    etl.fname = fname
+    etl.url = url
+    etl.updateFreq = updateFreq
+    etl.retryFreq = retryFreq
     etl.db = ConnectToDB();
+    etl.stopETL = make(chan bool)
+    etl.last = nil
+    etl.downloadDone = make(chan bool)
+    etl.extractDone = make(chan bool)
     return etl;
+}
+
+// DownloadFile will download a url to a local file. It's efficient because it will
+// write as it downloads and not load the whole file into memory.
+func (etl * ETL) DownloadFile(filepath string, url string) error {
+
+    // Get the data
+    resp, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Create the file
+    out, err := os.Create(filepath)
+    if err != nil {
+        return err
+    }
+    defer out.Close()
+
+    // Write the body to file
+    _, err = io.Copy(out, resp.Body)
+    return err
+}
+
+func (etl * ETL) DoETL() {
+    timer := time.NewTimer(etl.updateFreq)
+
+    etlLoop:
+    for {
+        downloadLoop:
+        for {
+           etl.status = Download
+            go etl.DownloadSourceData()
+
+            select {
+            case <-etl.stopETL:
+                return
+            case success := <-etl.downloadDone:
+                if !success {
+                    log.Printf("Could not download from %s.\n", etl.url)
+                } else {
+                    break downloadLoop
+                }
+            }
+
+            time.Sleep(etl.retryFreq)
+        }
+
+        extractLoop:
+        for {
+            etl.status = Extract
+            go etl.ExtractFeatures()
+
+            select {
+            case <-etl.stopETL:
+                return
+            case success := <-etl.extractDone:
+                if !success {
+                    log.Printf("Could not extract features from %s.\n", etl.fname)
+                } else {
+                    break extractLoop
+                }
+            }
+
+            time.Sleep(etl.retryFreq)
+        }
+
+        etl.status = Waiting
+        select {
+        case <-etl.stopETL:
+            if !timer.Stop() {
+                <-timer.C
+            }
+            return
+        case <-timer.C:
+            continue etlLoop
+        }
+    }
+}
+
+func (etl * ETL) DownloadSourceData() {
+    _, err := os.Stat(etl.fname)
+    if err == nil {
+        err := os.Remove(etl.fname)
+        if err != nil {
+            log.Printf("Remove file error %v\n", err)
+            etl.downloadDone <- false
+            return
+        }
+    } else if err != os.ErrNotExist {
+        log.Printf("Find file error %v\n", err)
+        etl.downloadDone <- false
+        return
+    }
+
+    err = etl.DownloadFile(etl.fname, etl.url)
+    if err != nil {
+        log.Printf("Download file error %v\n", err)
+        etl.downloadDone <- false
+        return
+    }
+
+
+    etl.downloadDone <- true
 }
 
 func (etl * ETL) Close() {
@@ -79,11 +210,16 @@ func (etl *ETL) LoadFeature(data interface{}) (added bool, err error) {
     newRow.Y = feature.Geometry.Coordinates.Y
 
     
-    oldFeature, err := QueryByDoittID(etl.db, doitt_id)
-    if err != nil {
+    oldFeature, noRows, err := QueryByDoittID(etl.db, doitt_id)
+    if err != nil && !noRows {
         log.Printf("Error from SELECT query: %v\n", err)
     }
-    if oldFeature != nil {
+    if noRows {
+        err = InsertIntoDB(etl.db, newRow)
+        if err != nil {
+            return
+        }
+    } else {
         u := oldFeature.LastMod
         if u.Before(t) {
             err = UpdateDBEntry(etl.db, oldFeature.ID, newRow)
@@ -91,13 +227,7 @@ func (etl *ETL) LoadFeature(data interface{}) (added bool, err error) {
                 return
             }
         } else {
-            err = errors.New("Cannot overwrite database with older data.")
-            return
-        }
-
-    } else {
-        err = InsertIntoDB(etl.db, newRow)
-        if err != nil {
+            log.Println("Ignoring out-of-date feature data.")
             return
         }
     }
@@ -107,35 +237,68 @@ func (etl *ETL) LoadFeature(data interface{}) (added bool, err error) {
     return
 }
 
-func (etl * ETL) ExtractFeatures() (err error) {
+func (etl * ETL) ExtractFeatures() {
     // The geojson file is stored as a single object of type "FeatureCollection"
     // whose fields contain its type name and a single array (named "features").
 
-    data, err := ioutil.ReadFile("data.geojson")
+    data, err := ioutil.ReadFile(etl.fname)
     if err != nil {
-        return fmt.Errorf("Unable to read geojson file (%v).", err)
+        log.Printf("Unable to read geojson file (%v).\n", err)
+        etl.extractDone <- false
+        return
     }
 
     featureCollection := GeoJSON{}
     err = json.Unmarshal(data, &featureCollection)
     if err != nil {
-        return fmt.Errorf("Unable to unmarshal geojson (%v).", err)
+        log.Printf("Unable to unmarshal geojson (%v).\n", err)
+        etl.extractDone <- false
+        return
     }
 
     objType := featureCollection.Type
     features := featureCollection.Features
 
     if objType != "FeatureCollection" {
-        return fmt.Errorf("GeoJSON object has unexpected type %v.", objType)
+        log.Printf("GeoJSON object has unexpected type %v.\n", objType)
+        etl.extractDone <- false
+        return
     }
 
     for i := 0; i < len(features); i++ {
         _, err = etl.LoadFeature(features[i])
         if err != nil {
             log.Printf("LoadFeature err: %v\n", err)
+            // no need to cancel whole extraction process just because one feature failed
         }
     }
 
-    return nil
+    etl.extractDone <- true
+
 }
 
+func (etl * ETL) StopETL() {
+    etl.Close()
+    etl.stopETL <- true
+}
+
+func (etl * ETL) PrintLast() {
+    if etl.last == nil {
+        fmt.Println("ETL has not yet loaded any data.")
+    } else {
+        fmt.Println("Last extraction, transformation, and load occurred at %v.", etl.last)
+    }
+}
+
+func (etl * ETL) PrintStatus() {
+    fmt.Println("ETL STATUS:")
+    if etl.status == Download {
+        fmt.Println("Downloading geojson from NYC Open Data.")
+    } else if etl.status == Extract {
+        fmt.Println("Extraction phase: unmarshalling local geojson file.")
+    } else if etl.status == TransformLoad {
+        fmt.Println("Transform & Load phase: modifying data and inserting into postgres.")
+    } else if etl.status == Waiting {
+        fmt.Println("Waiting for next ETL cycle. Ready to serve API requests.")
+    }
+}

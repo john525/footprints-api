@@ -90,7 +90,7 @@ func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
   return nil
 }
 
-func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, err error) {
+func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, noRows bool, err error) {
   query := fmt.Sprintf(`SELECT ID, DOITT_ID, YEAR, LASTMOD, ROOF_HEIGHT, ST_X(COORDS), ST_Y(COORDS)
     FROM BUILDINGS WHERE DOITT_ID=%d`, doitt_id)
   
@@ -100,10 +100,11 @@ func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, err error) {
     &feature.ID, &feature.DoittID, &feature.Year, &feature.LastMod,
     &feature.RoofHeight, &feature.X, &feature.Y)
 
-  if err != nil {
-    return nil, fmt.Errorf("SELECT QUERY error: %v", err)
+  if err == sql.ErrNoRows {
+    return nil, true, err
+  } else if err != nil {
+    return nil, false, fmt.Errorf("SELECT QUERY error: %v", err)
   }
 
-  err = nil
-  return
+  return feature, false, nil
 }
