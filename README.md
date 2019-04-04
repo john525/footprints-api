@@ -1,10 +1,11 @@
 <h1>Building Footprints Go API</h1>
 A Go API for accessing and manipulating data from the NYC DOITT's "Building Footprints" dataset, a feature class which stores polygonal outlines of the buildings in New York City.
 
-The ETL pipeline works by downloading a GeoJSON data file from NYC DOITT once every (approximately) 24 hours and loading it into a PostgreSQL database which was configured with the extension PostGIS, used for storing geographic and geometric data. The pipeline checks every feature's last modified date to avoid overwriting new data with old data.
+The ETL pipeline works by downloading a GeoJSON data file from NYC DOITT once every 24 hours and loading it into a PostgreSQL database which was configured with the extension PostGIS, used for storing geographic and geometric data. The pipeline checks every feature's last modified date to avoid overwriting new data with old data.
 
 I used the geometry data types supported in PostGIS as the documentation recommends using geometric rather than geographic data types for data spanning small regions, such as cities, due to performance costs.
 
+<h2>Instructions</h2>
 To set up the postgres server, install postgres and postgis:
 <code>brew install postgres
 brew install postgis</code>
