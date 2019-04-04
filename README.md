@@ -12,6 +12,7 @@ The postgres table stores the following data:
 <li>Year - the year the building was constructed (or is scheduled to be constructed)</li>
 <li>Last Modified - a timestamp stating when the NYC DOITT last updated data on this feature</li>
 <li>Roof Height - the height that the roof extends above ground elevation.
+<li>Coordinates - the location of the feature according to the NAD83 coordinate system (stored as a PostGIS geometric Point data type)
 </ul>
 
 <h2>Instructions</h2>
