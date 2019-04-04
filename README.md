@@ -17,8 +17,7 @@ The application loads and provides access to the following data:
 
 <h2>Instructions</h2>
 To set up the postgres server, install postgres and postgis. For OSX:
-<code>brew install postgres
-brew install postgis</code>
+<code>brew install postgres && brew install postgis</code>
 
 Then start the postgres server as follows:
 <code>pg_ctl -D /usr/local/var/postgres start</code>
@@ -43,5 +42,7 @@ http://localhost:15000/building?doitt_id=1205352
 
 The average height of buildings constructed between two years can be found as follows:
 http://localhost:15000/avg_height_between_years?min=1981&max=2016
+
+The file with name "logfile" stores the server's history for debugging purposes.
 
 For more information on Building Footprints, visit the description on the City of New York's github here: https://github.com/CityOfNewYork/nyc-geo-metadata/blob/master/Metadata/Metadata_BuildingFootprints.md
