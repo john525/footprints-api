@@ -70,6 +70,7 @@ func ConnectToDB() (db * sql.DB) {
   return db
 }
 
+// TODO: prepare queries for repeated use
 func InsertIntoDB(db *sql.DB, feature * DBFeature) error {
   // 4269 represents NAD83 spatial reference system
   point := fmt.Sprintf("ST_GeometryFromText('POINT (%f %f)', 4269)", feature.X, feature.Y)
@@ -89,6 +90,7 @@ func InsertIntoDB(db *sql.DB, feature * DBFeature) error {
   return nil
 }
 
+// TODO: prepare queries for repeated use
 func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
   // 4269 represents NAD83 spatial reference system
   point := fmt.Sprintf("ST_GeometryFromText('POINT (%f %f)', 4269)", feature.X, feature.Y)
@@ -110,8 +112,9 @@ func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
 
 func QueryAvgHeightInBoundingBox(db *sql.DB, xmin float32, ymin float32, xmax float32, ymax float32) {
   // TODO: implement
-  //region := fmt.Sprintf("POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
-  //    xmin, ymin, xmin, ymax, xmax, ymax, xmax, ymin, xmin, ymin)
+  region := fmt.Sprintf("POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
+     xmin, ymin, xmin, ymax, xmax, ymax, xmax, ymin, xmin, ymin)
+  
 }
 
 func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height float32, err error) {
@@ -120,9 +123,6 @@ func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height fl
   
   var avgHeight *float32
   err = db.QueryRow(query).Scan(&avgHeight)
-  // if avgHeight == nil {
-  //   return 0, errors.New("no data found in interval")
-  // }
 
   if err == sql.ErrNoRows {
     return 0, fmt.Errorf("No data entries within selected interval.")
@@ -131,7 +131,9 @@ func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height fl
   }
 
   return *avgHeight, nil
-  }
+}
+
+// TODO: prepare queries for repeated use
 
 func QueryByDoittID(db *sql.DB, doitt_id int) (feature * DBFeature, noRows bool, err error) {
   query := fmt.Sprintf(`SELECT ID, DOITT_ID, YEAR, LASTMOD, ROOF_HEIGHT, ST_X(COORDS), ST_Y(COORDS)

@@ -38,10 +38,10 @@ To see the server's current activity, type "status" into the CLI.
 For more options, "help" can be entered.
 
 Once the server is running on your local machine, the full data on a building whose DOITT ID is known can be retrieved from the postgres datastore in the following fashion:
-http://localhost:15000/building?doitt_id=1205352
+localhost:15000/building?doitt_id=1205352
 
 The average height of buildings constructed between two years can be found as follows:
-http://localhost:15000/avg_height_between_years?min=1981&max=2016
+localhost:15000/avg_height_between_years?min=1981&max=2016
 
 The file with name "logfile" stores the server's history for debugging purposes.
 
