@@ -5,7 +5,7 @@ CREATE TABLE BUILDINGS (
 	DOITT_ID integer UNIQUE NOT NULL,
 	YEAR integer,
 	LASTMOD TIMESTAMPTZ NOT NULL,
-	ROOF_HEIGHT real
+	ROOF_HEIGHT real NOT NULL
 );
 
 /* Building Footprints uses NAD83 spatial reference system (a.k.a. 4269) */

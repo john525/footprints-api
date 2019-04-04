@@ -112,9 +112,9 @@ func UpdateDBEntry(db *sql.DB, db_id int, feature * DBFeature) error {
 
 func QueryAvgHeightInBoundingBox(db *sql.DB, xmin float32, ymin float32, xmax float32, ymax float32) {
   // TODO: implement
-  region := fmt.Sprintf("POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
-     xmin, ymin, xmin, ymax, xmax, ymax, xmax, ymin, xmin, ymin)
-  
+  // region := fmt.Sprintf("POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
+  //    xmin, ymin, xmin, ymax, xmax, ymax, xmax, ymin, xmin, ymin)
+  // region := 
 }
 
 func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height float32, err error) {
@@ -128,6 +128,10 @@ func QueryAvgHeightBetweenYears(db *sql.DB, yearMin int, yearMax int) (height fl
     return 0, fmt.Errorf("No data entries within selected interval.")
   } else if err != nil {
     return 0, fmt.Errorf("SELECT error: %v", err)
+  }
+
+  if avgHeight == nil {
+    return 0, errors.New("No data found. Try a larger interval.")
   }
 
   return *avgHeight, nil
